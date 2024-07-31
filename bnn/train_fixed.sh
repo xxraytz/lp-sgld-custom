@@ -1,9 +1,9 @@
 #!/bin/bash
 
 WL=8
-python -u train.py --dataset CIFAR10 \
+python -u train.py --dataset IMAGENET1K --data_path "/home/dataset_caches/imagenet-1k" \
        --model ResNet18LP \
-       --epochs=245 \
+       --epochs=100 \
        --lr_init=0.5 \
        --wd=5e-4 \
        --wl-weight ${WL} \
@@ -18,5 +18,5 @@ python -u train.py --dataset CIFAR10 \
        --grad-type fixed\
        --noise 1 \
        --quant_acc -2 \
-       # --set_default_optimizer True \
+       --set_default_optimizer True \
        ;

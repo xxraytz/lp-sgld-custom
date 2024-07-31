@@ -15,7 +15,7 @@ def get_ds(dataset_name, data_path, num_proc=4):
                            num_proc=num_proc,
                         #    cache_dir='../../dataset_caches/imagenet-1k',
                            cache_dir=data_path,
-                           token='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'
+                           token=''
                            )
     # dataset = dataset.train_test_split(0.2, )
     test_name = 'validation'
