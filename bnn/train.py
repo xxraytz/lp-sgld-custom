@@ -127,6 +127,9 @@ parser.add_argument(
 parser.add_argument(
     "--M", type=int, default=7, help="number of cycles in cyclical LR schedule"
 )
+parser.add_argument(
+    "--set_default_optimizer", type=bool, default=False, help='Set optimizer to regular SGD'
+)
 
 args = parser.parse_args()
 args.cuda = torch.cuda.is_available()
@@ -148,6 +151,7 @@ def make_number(dataset,number, wl=-1, fl=-1, exp=-1, man=-1):
         raise ValueError("invalid number type")
 
 if args.wl_weight >0: # low-precision model
+    print('ES: low-presicion model')
     number_dict = {}
     for num in num_types:
         num_wl = getattr(args, "wl_{}".format(num))
@@ -197,22 +201,32 @@ if args.wl_weight >0: # low-precision model
     else:
         quant_acc = None
     optimizer = SGD(model.parameters(), lr=args.lr_init, weight_decay=args.wd)
-    optimizer = OptimLP(
-        optimizer,
-        weight_quant=weight_quantizer,
-        grad_quant=grad_quantizer,
-        acc_quant=quant_acc,
-        noise=args.noise,
-        temperature=args.temperature,
-        datasize=ds,
-        WL=args.wl_weight,
-        FL=args.fl_weight,
-        EXP=args.weight_exp,
-        MAN=args.weight_man,
-        quant_type=args.quant_type,
-        number_type=args.weight_type
-    )
+    if not args.set_default_optimizer:
+        optimizer = OptimLP(
+            optimizer,
+            weight_quant=weight_quantizer,
+            grad_quant=grad_quantizer,
+            acc_quant=quant_acc,
+            noise=args.noise,
+            temperature=args.temperature,
+            datasize=ds,
+            WL=args.wl_weight,
+            FL=args.fl_weight,
+            EXP=args.weight_exp,
+            MAN=args.weight_man,
+            quant_type=args.quant_type,
+            number_type=args.weight_type
+        )
+    else:
+        from qtorch.optim import OptimLP as stdOptimLP
+        optimizer = stdOptimLP(
+            optimizer,
+            weight_quant=weight_quantizer,
+            grad_quant=grad_quantizer,
+            # acc_quant=quant_acc
+        )
 else: # full-precision model
+    print('ES: full-presicion model')
     print("Model: {}".format(args.model))
     model_cfg = getattr(models, args.model)
     if args.dataset == "CIFAR10":
@@ -230,12 +244,19 @@ else: # full-precision model
 
     model.cuda()
     optimizer = SGD(model.parameters(), lr=args.lr_init, weight_decay=args.wd)
-    optimizer = OptimLP(
-        optimizer,
-        noise=args.noise,
-        temperature=args.temperature,
-        datasize=ds
-    )
+    if not args.set_default_optimizer:
+        optimizer = OptimLP(
+            optimizer,
+            noise=args.noise,
+            temperature=args.temperature,
+            datasize=ds
+        )
+    else:
+        from qtorch.optim import OptimLP as stdOptimLP
+        optimizer = stdOptimLP(
+            optimizer,
+        )
+        print("Set optimizer to default")
 
 # Prepare logging
 columns = ["ep", "lr", "tr_loss", "tr_acc", "tr_time", "te_loss", "te_acc", "te_time"]

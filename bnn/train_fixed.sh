@@ -17,4 +17,6 @@ python -u train.py --dataset CIFAR10 \
        --weight-type fixed \
        --grad-type fixed\
        --noise 1 \
-       --quant_acc -2;
+       --quant_acc -2 \
+       # --set_default_optimizer True \
+       ;

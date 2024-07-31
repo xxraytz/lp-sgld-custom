@@ -65,7 +65,10 @@ def run_epoch(args,loader, model, criterion, epoch, num_batch=None, T=None, opti
             if phase == "train":            
                 optimizer.zero_grad()
                 loss.backward()
-                optimizer.step(epoch)
+                if args.set_default_optimizer:                    
+                    optimizer.step(epoch)
+                else:
+                    optimizer.step(epoch)
 
     elapse = perf_counter() - start
     correct = correct.cpu().item()
