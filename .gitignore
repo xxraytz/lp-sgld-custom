@@ -1,0 +1,8 @@
+**checkpoints/
+
+/home/dev/lp-sgld-custom/data/
+/data/
+
+**/__pycache__/
+
+.vscode

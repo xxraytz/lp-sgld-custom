@@ -13,6 +13,7 @@ from torch.optim import SGD
 from qtorch import BlockFloatingPoint, FixedPoint, FloatingPoint
 from optim import OptimLP
 import os
+
 if not os.path.exists('checkpoints'):
     os.makedirs('checkpoints')
 num_types = ["weight", "activate", "grad", "error"]
@@ -135,7 +136,7 @@ args = parser.parse_args()
 args.cuda = torch.cuda.is_available()
 utils.set_seed(args.seed, args.cuda)
 
-loaders = utils.get_data(args.dataset, args.data_path, args.batch_size, num_workers=0)
+loaders = utils.get_data(args.dataset, args.data_path, args.batch_size, num_workers=8)
 print('quant_type:', args.quant_type, 'quant_acc', args.quant_acc)
 
 def make_number(dataset,number, wl=-1, fl=-1, exp=-1, man=-1):
@@ -195,6 +196,11 @@ if args.wl_weight >0: # low-precision model
         criterion = F.cross_entropy
     elif args.dataset == "IMAGENET12":
         num_classes = 1000
+    elif args.dataset == "IMAGENET1K":
+        num_classes = 1000
+        model = model_cfg.base(*model_cfg.args, num_classes=num_classes, **model_cfg.kwargs)
+        criterion = F.cross_entropy
+        ds = loaders['train'].sampler.num_samples
     model.cuda()
     if args.quant_acc == -2:
         quant_acc = "full"
@@ -241,6 +247,11 @@ else: # full-precision model
         criterion = F.cross_entropy
     elif args.dataset == "IMAGENET12":
         num_classes = 1000
+    elif args.dataset == "IMAGENET1K":
+        num_classes = 1000
+        model = model_cfg.base(*model_cfg.args, num_classes=num_classes, **model_cfg.kwargs)
+        criterion = F.cross_entropy
+        ds = loaders['train'].sampler.num_samples
 
     model.cuda()
     optimizer = SGD(model.parameters(), lr=args.lr_init, weight_decay=args.wd)

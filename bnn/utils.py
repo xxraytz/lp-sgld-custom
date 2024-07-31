@@ -3,8 +3,34 @@ import torch
 import tabulate
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
+from functools import partial
 from time import perf_counter
 import numpy as np
+from data.load_hf_datasets import get_ds, collate_fn, data_preprocess
+from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
+
+try:
+    from torchvision.transforms import InterpolationMode
+
+
+    def _pil_interp(method):
+        if method == 'bicubic':
+            return InterpolationMode.BICUBIC
+        elif method == 'lanczos':
+            return InterpolationMode.LANCZOS
+        elif method == 'hamming':
+            return InterpolationMode.HAMMING
+        else:
+            # default bilinear, do we want to allow nearest?
+            return InterpolationMode.BILINEAR
+
+
+    import timm.data.transforms as timm_transforms
+
+    timm_transforms._pil_interp = _pil_interp
+except:
+    from timm.data.transforms import _pil_interp
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 import random
 
@@ -51,7 +77,8 @@ def run_epoch(args,loader, model, criterion, epoch, num_batch=None, T=None, opti
     ttl = 0
     start = perf_counter()
     with torch.autograd.set_grad_enabled(phase == "train"):
-        for i, (input, target) in enumerate(loader):            
+
+        for i, (input, target) in enumerate(loader):
             target = target.to(device=device)
             if phase == "train":
                 lr = adjust_learning_rate(args, optimizer, epoch,i,num_batch, T)
@@ -69,6 +96,9 @@ def run_epoch(args,loader, model, criterion, epoch, num_batch=None, T=None, opti
                     optimizer.step(epoch)
                 else:
                     optimizer.step(epoch)
+            
+            if i % 100 == 0:
+                print(f'{i // 100}', end=' - ')
 
     elapse = perf_counter() - start
     correct = correct.cpu().item()
@@ -137,6 +167,42 @@ def get_data(dataset, data_path, batch_size, num_workers,train_shuffle=True):
                 num_workers=0
             ),
         }
+    elif dataset == 'IMAGENET1K':
+        path = os.path.join(data_path)
+        dataset_train, dataset_val = get_ds("imagenet-1k", data_path, num_proc=4)
+        train_transforms = transforms.Compose([
+            transforms.RandomResizedCrop(32),  
+            transforms.RandomHorizontalFlip(), 
+            transforms.ToTensor(),             
+            transforms.Normalize(mean=IMAGENET_DEFAULT_MEAN, std=IMAGENET_DEFAULT_STD),  
+        ])
+
+        
+        test_transforms = transforms.Compose([
+            transforms.Resize(34),    
+            transforms.CenterCrop(32), 
+            transforms.ToTensor(),
+            transforms.Normalize(mean=IMAGENET_DEFAULT_MEAN, std=IMAGENET_DEFAULT_STD),  
+        ])
+        dataset_train.set_transform(partial(data_preprocess, transform_f=train_transforms))
+        dataset_val.set_transform(partial(data_preprocess, transform_f=test_transforms))
+        loaders = {
+            "train": torch.utils.data.DataLoader(
+                dataset_train,
+                batch_size=batch_size,
+                shuffle=train_shuffle,
+                num_workers=num_workers,
+                collate_fn=collate_fn,
+            ),
+            "test": torch.utils.data.DataLoader(
+                dataset_val,
+                batch_size=batch_size,
+                shuffle=False,
+                num_workers=num_workers,
+                collate_fn=collate_fn,
+            ),
+        }
+
     else:
         raise Exception("Invalid dataset %s" % dataset)    
 
